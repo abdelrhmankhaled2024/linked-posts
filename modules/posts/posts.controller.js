@@ -1,68 +1,100 @@
-import { dbConnection } from "../../database/dbConnection.js";
+import pool from "../../database/dbConnection.js";
 
-const connection = dbConnection();
-const addPost = (req, res) => {
-  connection.query(`insert into posts set ?`, req.body, (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Error adding post", error: err });
+// Add a post
+const addPost = async (req, res) => {
+  try {
+    const [result] = await pool.query(`INSERT INTO posts SET ?`, req.body);
+    res.status(201).json({ message: "success", postId: result.insertId });
+  } catch (err) {
+    res.status(500).json({ message: "Error adding post", error: err });
+  }
+};
+
+// Get all posts
+const getAllPosts = async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT users.id, users.name, posts.id AS postId, posts.title, posts.description
+      FROM users JOIN posts ON users.id = posts.user_id
+    `);
+    res.status(200).json({ message: "success", data: rows });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching posts", error: err });
+  }
+};
+
+// Get single post by post ID
+const getSinglePost = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `
+      SELECT users.id, users.name, posts.id AS postId, posts.title, posts.description
+      FROM users JOIN posts ON users.id = posts.user_id
+      WHERE posts.id = ?
+    `,
+      [req.params.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Post not found" });
     }
-    res.status(201).json({ message: "success", postId: results.insertId });
-  });
+
+    res.status(200).json({ message: "success", data: rows[0] });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching post", error: err });
+  }
 };
 
-const getAllPosts = (req, res) => {
-  connection.execute(
-    `select users.id,users.name,posts.id as postId,posts.title,posts.description from users join posts on users.id=posts.user_id`,
-    (err, data) => {
-      if (err) {
-        return res
-          .status(500)
-          .json({ message: "Error fetching posts", error: err });
-      }
-      res.status(200).json({ message: "success", data: data });
+// Get all posts by a specific user
+const getUserPosts = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `
+      SELECT users.id, users.name, posts.id AS postId, posts.title, posts.description
+      FROM users JOIN posts ON users.id = posts.user_id
+      WHERE users.id = ?
+    `,
+      [req.params.id]
+    );
+    res.status(200).json({ message: "success", data: rows });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching user posts", error: err });
+  }
+};
+
+// Update a post
+const updateUser = async (req, res) => {
+  try {
+    const [result] = await pool.query(`UPDATE posts SET ? WHERE id = ?`, [
+      req.body,
+      req.params.id,
+    ]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Post not found" });
     }
-  );
+
+    res.status(200).json({ message: "success" });
+  } catch (err) {
+    res.status(500).json({ message: "Error updating post", error: err });
+  }
 };
 
-const getSinglePost = (req, res) => {
-  connection.execute(
-    `select users.id,users.name,posts.id as postId,posts.title,posts.description from users join posts on users.id=posts.user_id where posts.id=${req.params.id}`,
-    (err, data) => {
-      if (err) {
-        return res
-          .status(500)
-          .json({ message: "Error fetching posts", error: err });
-      }
-      res.status(200).json({ message: "success", data: data });
+// Delete a post
+const deleteUser = async (req, res) => {
+  try {
+    const [result] = await pool.query(`DELETE FROM posts WHERE id = ?`, [
+      req.params.id,
+    ]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Post not found" });
     }
-  );
-};
 
-const getUserPosts = (req, res) => {
-  connection.execute(
-    `select users.id,users.name,posts.id as postId,posts.title,posts.description from users join posts on users.id=posts.user_id where users.id=${req.params.id}`,
-    (err, data) => {
-      if (err) {
-        return res
-          .status(500)
-          .json({ message: "Error fetching posts", error: err });
-      }
-      res.status(200).json({ message: "success", data: data });
-    }
-  );
-};
-
-const updateUser = (req, res) => {
-  connection.query(`update posts set ? where id = ?`, [
-    req.body,
-    req.params.id,
-  ]);
-  res.status(200).json({ message: "success" });
-};
-
-const deleteUser = (req, res) => {
-  connection.execute(`delete from posts where id=${req.params.id}`);
-  res.status(200).json({ message: "success" });
+    res.status(200).json({ message: "success" });
+  } catch (err) {
+    res.status(500).json({ message: "Error deleting post", error: err });
+  }
 };
 
 export {
